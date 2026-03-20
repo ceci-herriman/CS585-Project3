@@ -4,6 +4,19 @@ import org.apache.spark.{SparkConf, SparkContext}
 //prereqs: need to install sbt on computer and have the proper file structure in your folder where your .scala file is
 // I also have the scala metals vsc extension
 
+//my build.sbt file:
+// ThisBuild / scalaVersion := "2.12.18"
+// ThisBuild / version      := "0.1.0"
+
+// lazy val root = (project in file("."))
+//   .settings(
+//     name := "CS585-Project3",
+//     libraryDependencies ++= Seq(
+//       "org.apache.spark" %% "spark-core" % "3.5.0" % "provided",
+//       "org.apache.spark" %% "spark-sql"  % "3.5.0" % "provided"
+//     )
+//   )
+
 //to compile: run sbt package
 //to run in docker container: run ~/spark/bin/spark-submit --class Query1 ./target/scala-2.12/cs585-project3_2.12-0.1.0.jar
   //this is run in my shared_folder/project3/ directory, where my scala file + spark sbt file structure is
