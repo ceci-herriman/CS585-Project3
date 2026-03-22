@@ -46,7 +46,6 @@ object Query3 {
     val connectedBroadcast = sc.broadcast(connected.collect())
 
     //for each person, map (id, 1) for each connected person with id "id" they are close to
-    //case (id1, (x1, y1, a1, b1, c1))
     val res = p
     .flatMap { line =>
       val parts = line.split(",")
@@ -66,7 +65,6 @@ object Query3 {
   }
 }
 
-//I need to optimized these following queries more later - ceci
 
 object Query2 {
   def isClose(x1: Double, y1: Double, x2: Double, y2: Double): Boolean = {
@@ -81,15 +79,9 @@ object Query2 {
     val p = sc.textFile("file:////home/ds503/shared_folder/project3/People.txt")
     val c = sc.textFile("file:////home/ds503/shared_folder/project3/Connected.txt")
 
-    //convert to key value pairs for easy joining
-    val people = p.map(line => {
-      val parts = line.split(",")
-      (parts(0), (parts(1).toDouble, parts(2).toDouble, parts(3), parts(4), parts(5)))
-    })
-
     val connected = c.map(line => {
       val parts = line.split(",")
-      (parts(0), (parts(1).toDouble, parts(2).toDouble, parts(3), parts(4), parts(5)))
+      (parts(0), (parts(1).toDouble, parts(2).toDouble))
     })
 
     //cache connected
@@ -99,21 +91,16 @@ object Query2 {
     //this is faster than cartesian then filtering because we filter as we match records together instead of building
     //cartesian product and then going through it again
 
-    //return pi, connect-i for those which are close to each toher
-    val res = people.flatMap { case (id2, (x2, y2, a2, b2, c2)) =>
-      connectedBroadcast.value.collect {
-        case (id1, (x1, y1, a1, b1, c1)) if id1 != id2 && isClose(x1, y1, x2, y2) => (id2)
-      }
-    }.distinct()
-
-     .flatMap { line =>
+    //return pi for those which are close to each a connected person
+    val res = p.flatMap { line =>
       val parts = line.split(",")
       connectedBroadcast.value.collect {
-        //get the connected ids the person is close to and map them out
+        //if person is close to connected person, return their id
         case (id2, (x2, y2)) 
-        if parts(0) != id2 && isClose(parts(1).toDouble, parts(2).toDouble, x2, y2) => id2
+        if parts(0) != id2 && isClose(parts(1).toDouble, parts(2).toDouble, x2, y2) => parts(0)
       }
     }
+    .distinct()
 
     res.foreach(println)
 
@@ -136,12 +123,6 @@ object Query1 {
     val p = sc.textFile("file:////home/ds503/shared_folder/project3/People.txt")
     val c = sc.textFile("file:////home/ds503/shared_folder/project3/Connected.txt")
 
-    //convert to key value pairs for easy joining
-    val people = p.map(line => {
-      val parts = line.split(",")
-      (parts(0), (parts(1).toDouble, parts(2).toDouble, parts(3), parts(4), parts(5)))
-    })
-
     val connected = c.map(line => {
       val parts = line.split(",")
       (parts(0), (parts(1).toDouble, parts(2).toDouble, parts(3), parts(4), parts(5)))
@@ -155,10 +136,13 @@ object Query1 {
     //cartesian product and then going through it again
 
     //return pi, connect-i for those which are close to each toher
-    val res = people.flatMap { case (id2, (x2, y2, a2, b2, c2)) =>
+    val res = p.flatMap { line =>
+      val parts = line.split(",")
       connectedBroadcast.value.collect {
-        case (id1, (x1, y1, a1, b1, c1)) if id1 != id2 && isClose(x1, y1, x2, y2) =>
-          ((id2, x2, y2, a2, b2, c2), (id1, x1, y1, a1, b1, c1))
+        //if person is close to connected person, return them as a pair
+        case (id1, (x1, y1, a1, b1, c1))
+        if parts(0) != id1 && isClose(parts(1).toDouble, parts(2).toDouble, x1, y1) => 
+          ((parts(0), parts(1).toDouble, parts(2).toDouble, parts(3), parts(4), parts(5)), (id1, x1, y1, a1, b1, c1))
       }
     }
 
