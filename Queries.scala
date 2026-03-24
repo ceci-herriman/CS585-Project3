@@ -1,4 +1,5 @@
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
 
 //ssh -p 14226 ds503@localhost
@@ -24,6 +25,29 @@ import org.apache.spark.{SparkConf, SparkContext}
   //this is run in my shared_folder/project3/ directory, where my scala file + spark sbt file structure is
   //so when I make new data with data.py or recompile my .scala, I don't have to copy files over
 
+object Query4 {
+
+  def main(args: Array[String]): Unit = {
+    val spark = SparkSession.builder().appName("Part2").master("local[*]") .getOrCreate()
+
+    val reviews = spark.read
+      .option("header", "true")     //fist line of csv is header
+      .option("inferSchema", "true")
+      .csv("file:////home/ds503/shared_folder/project3/Books_rating.csv")
+      .withColumnRenamed("review/score", "reviewScore")
+      .withColumnRenamed("review/text", "reviewText")
+
+    //filter reviews 
+    val T1 = reviews.filter(reviews("reviewScore") > 3.0 
+                      && reviews("reviewText").isNotNull && reviews("Title").isNotNull
+                      && reviews("reviewText") != "" && reviews("Title") != "")
+
+    //group reviews by score and compute summary statistics
+
+    spark.stop()
+  }
+}
+
 object Query3 {
   def isClose(x1: Double, y1: Double, x2: Double, y2: Double): Boolean = {
     val dx = x1 - x2
@@ -32,7 +56,7 @@ object Query3 {
   }
 
   def main(args: Array[String]): Unit = {
-    val sparConf = new SparkConf().setMaster("local").setAppName("Query1")
+    val sparConf = new SparkConf().setMaster("local").setAppName("Part1")
     val sc = new SparkContext(sparConf)
     val p = sc.textFile("file:////home/ds503/shared_folder/project3/People_with_handshake_info.txt")
 
@@ -46,6 +70,7 @@ object Query3 {
     val connectedBroadcast = sc.broadcast(connected.collect())
 
     //for each person, map (id, 1) for each connected person with id "id" they are close to
+    //case (id1, (x1, y1, a1, b1, c1))
     val res = p
     .flatMap { line =>
       val parts = line.split(",")
@@ -74,7 +99,7 @@ object Query2 {
   }
 
   def main(args: Array[String]): Unit = {
-    val sparConf = new SparkConf().setMaster("local").setAppName("Query1")
+    val sparConf = new SparkConf().setMaster("local").setAppName("Part1")
     val sc = new SparkContext(sparConf)
     val p = sc.textFile("file:////home/ds503/shared_folder/project3/People.txt")
     val c = sc.textFile("file:////home/ds503/shared_folder/project3/Connected.txt")
@@ -118,7 +143,7 @@ object Query1 {
   }
 
   def main(args: Array[String]): Unit = {
-    val sparConf = new SparkConf().setMaster("local").setAppName("Query1")
+    val sparConf = new SparkConf().setMaster("local").setAppName("Part1")
     val sc = new SparkContext(sparConf)
     val p = sc.textFile("file:////home/ds503/shared_folder/project3/People.txt")
     val c = sc.textFile("file:////home/ds503/shared_folder/project3/Connected.txt")
