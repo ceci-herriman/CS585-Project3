@@ -28,22 +28,31 @@ import org.apache.spark.{SparkConf, SparkContext}
 object Query4 {
 
   def main(args: Array[String]): Unit = {
-    val spark = SparkSession.builder().appName("Part2").master("local[*]") .getOrCreate()
+    val spark = SparkSession.builder().appName("Part2").master("local[*]").getOrCreate()
 
     val reviews = spark.read
       .option("header", "true")     //fist line of csv is header
       .option("inferSchema", "true")
+      .option("nullValue", "")
       .csv("file:////home/ds503/shared_folder/project3/Books_rating.csv")
-      .withColumnRenamed("review/score", "reviewScore")
-      .withColumnRenamed("review/text", "reviewText")
 
     //filter reviews 
-    val T1 = reviews.filter(reviews("reviewScore") > 3.0 
-                      && reviews("reviewText").isNotNull && reviews("Title").isNotNull
-                      && reviews("reviewText") != "" && reviews("Title") != "")
+    //val T1 = reviews.filter(reviews("review/score") > 3.0 
+    //                  && reviews("review/text").isNotNull && reviews("Title").isNotNull
+     //                 && reviews("review/text") != "" && reviews("Title") != "")
 
-    //group reviews by score and compute summary statistics
 
+    // T1.write
+    //   .option("header", "true")
+    //   .mode("overwrite")
+    //   .csv("file:////home/ds503/shared_folder/project3/T1_output.csv")
+
+    //group reviews by review/score and compute summary statistics
+    //number of reviews, average review text length, minimum review text length,  maximum review text length
+    val groupedT1Count = reviews.groupBy(reviews("review/score")).count()
+   // val groupedT1 = T1.groupBy(T1("review/score")).agg(avg(T1("review/text").count()))
+
+    groupedT1Count.show()
     spark.stop()
   }
 }
