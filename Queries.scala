@@ -1,6 +1,7 @@
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.functions._
 
 //ssh -p 14226 ds503@localhost
 
@@ -25,6 +26,12 @@ import org.apache.spark.{SparkConf, SparkContext}
   //this is run in my shared_folder/project3/ directory, where my scala file + spark sbt file structure is
   //so when I make new data with data.py or recompile my .scala, I don't have to copy files over
 
+/*
+sbt package
+scp -P 14226 target/scala-2.12/cs585-project3_2.12-0.1.0.jar ds503@localhost:/home/ds503/shared_folder/project3
+scp -P 14226 C:/Users/op902/CS585-Project3/Queries.scala  ds503@localhost:~/shared_folder/project3
+*/
+
 object Query4 {
 
   def main(args: Array[String]): Unit = {
@@ -37,22 +44,31 @@ object Query4 {
       .csv("file:////home/ds503/shared_folder/project3/Books_rating.csv")
 
     //filter reviews 
-    //val T1 = reviews.filter(reviews("review/score") > 3.0 
-    //                  && reviews("review/text").isNotNull && reviews("Title").isNotNull
-     //                 && reviews("review/text") != "" && reviews("Title") != "")
+    val T1 = reviews
+      .filter(
+        reviews("review/score") >= 4 &&
+        reviews("review/text").isNotNull && trim(reviews("review/text")) =!= "" &&
+        reviews("Title").isNotNull && reviews("Title") =!= ""
+      )
+    
+    val reviewScoreCounts = T1
+      .groupBy("review/score")
+      .count()
+      .orderBy("review/score")
 
-
-    // T1.write
-    //   .option("header", "true")
-    //   .mode("overwrite")
-    //   .csv("file:////home/ds503/shared_folder/project3/T1_output.csv")
+    /*write to csv
+    T1.write
+      .option("header", "true")
+      .mode("overwrite")
+      .csv("file:////home/ds503/shared_folder/project3/T1_output.csv")
+      */
 
     //group reviews by review/score and compute summary statistics
     //number of reviews, average review text length, minimum review text length,  maximum review text length
-    val groupedT1Count = reviews.groupBy(reviews("review/score")).count()
+    //val groupedT1 = reviews.groupBy(reviews("review/score")).count()
    // val groupedT1 = T1.groupBy(T1("review/score")).agg(avg(T1("review/text").count()))
 
-    groupedT1Count.show()
+    reviewScoreCounts.show()
     spark.stop()
   }
 }
