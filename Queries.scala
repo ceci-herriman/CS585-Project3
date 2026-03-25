@@ -37,6 +37,7 @@ object Query4 {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder().appName("Part2").master("local[*]").getOrCreate()
 
+    //load datasets
     val reviews = spark.read
       .option("header", "true")     //fist line of csv is header
       .option("inferSchema", "true")
@@ -44,6 +45,14 @@ object Query4 {
       .option("quote", "\"")             //quotes signify a single field value
       .option("escape", "\"")            //escape character defined to be double quote (so "" translates to a quote when its in a field)
       .csv("file:////home/ds503/shared_folder/project3/Books_rating.csv")
+
+    val bookDetails = spark.read
+      .option("header", "true")     //fist line of csv is header
+      .option("inferSchema", "true")
+      .option("nullValue", "")
+      .option("quote", "\"")             //quotes signify a single field value
+      .option("escape", "\"")            //escape character defined to be double quote (so "" translates to a quote when its in a field)
+      .csv("file:////home/ds503/shared_folder/project3/books_data.csv")
 
     //filter reviews (2.2)
     val T1 = reviews
@@ -66,7 +75,6 @@ object Query4 {
 
     reviewScoreCounts.show()
 
-
     //User review stats (2.4)
     val T3 = T1
       .groupBy("User_id")
@@ -78,6 +86,21 @@ object Query4 {
       .filter(col("Total number of reviews") >= 3)
 
     T3.show()
+
+    //join reviews and book details (2.5)
+    val reviewJoinData = T1
+      .join(bookDetails, Seq("Title")) 
+     
+    val T4 = reviewJoinData
+      .groupBy("User_id", "categories")
+      .agg(
+        count("*").as("Number of reviews in category"),
+        avg("review/score").as("Average review score in category"),
+        avg("Price").as("Average price in category")  //nulls will be ignored automatically
+      )
+      .filter(col("Number of reviews in category") >= 2)
+
+    T4.show()
 
     spark.stop()
   }
