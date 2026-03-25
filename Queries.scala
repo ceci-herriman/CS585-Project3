@@ -65,6 +65,20 @@ object Query4 {
       )
 
     reviewScoreCounts.show()
+
+
+    //User review stats (2.4)
+    val T3 = T1
+      .groupBy("User_id")
+      .agg(
+        count("*").as("Total number of reviews"),
+        avg("review/score").as("Average review score"),
+        avg(length(col("review/text"))).as("Average review text length")
+      )
+      .filter(col("Total number of reviews") >= 3)
+
+    T3.show()
+
     spark.stop()
   }
 }
