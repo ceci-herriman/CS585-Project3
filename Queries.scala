@@ -41,9 +41,11 @@ object Query4 {
       .option("header", "true")     //fist line of csv is header
       .option("inferSchema", "true")
       .option("nullValue", "")
+      .option("quote", "\"")             //quotes signify a single field value
+      .option("escape", "\"")            //escape character defined to be double quote (so "" translates to a quote when its in a field)
       .csv("file:////home/ds503/shared_folder/project3/Books_rating.csv")
 
-    //filter reviews 
+    //filter reviews (2.2)
     val T1 = reviews
       .filter(
         reviews("review/score") >= 4 &&
@@ -51,22 +53,16 @@ object Query4 {
         reviews("Title").isNotNull && reviews("Title") =!= ""
       )
     
+    //group reviews by review/score and compute summary statistics (2.3)
+    //number of reviews, average review text length, minimum review text length,  maximum review text length
     val reviewScoreCounts = T1
       .groupBy("review/score")
-      .count()
-      .orderBy("review/score")
-
-    /*write to csv
-    T1.write
-      .option("header", "true")
-      .mode("overwrite")
-      .csv("file:////home/ds503/shared_folder/project3/T1_output.csv")
-      */
-
-    //group reviews by review/score and compute summary statistics
-    //number of reviews, average review text length, minimum review text length,  maximum review text length
-    //val groupedT1 = reviews.groupBy(reviews("review/score")).count()
-   // val groupedT1 = T1.groupBy(T1("review/score")).agg(avg(T1("review/text").count()))
+      .agg(
+        count("review/score").as("Number of reviews"),
+        avg(length(T1("review/text"))).as("Average review text length"),
+        min(length(T1("review/text"))).as("Minimum review text length"),
+        max(length(T1("review/text"))).as("Maximum review text length")
+      )
 
     reviewScoreCounts.show()
     spark.stop()
@@ -201,4 +197,3 @@ object Query1 {
     sc.stop()
   }
 }
-
