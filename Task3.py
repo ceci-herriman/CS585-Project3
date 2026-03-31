@@ -1,11 +1,16 @@
 import sparknlp
 from sparknlp.base import *
+from sparknlp import DocumentAssembler
 from sparknlp.annotator import *
 from pyspark.ml import Pipeline
 
-# Requirements: spark-nlp 6.3.3, pyspark 4.1.1
+# conda install -c johnsnowlabs spark-nlp
+# conda install -c conda-forge openjdk=8
+
+
 
 spark = sparknlp.start()
+
 
 # load the review text column from the dataset
 
