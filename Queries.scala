@@ -1,6 +1,7 @@
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.functions._
 
 //ssh -p 14226 ds503@localhost
 
@@ -25,24 +26,81 @@ import org.apache.spark.{SparkConf, SparkContext}
   //this is run in my shared_folder/project3/ directory, where my scala file + spark sbt file structure is
   //so when I make new data with data.py or recompile my .scala, I don't have to copy files over
 
+/*
+sbt package
+scp -P 14226 target/scala-2.12/cs585-project3_2.12-0.1.0.jar ds503@localhost:/home/ds503/shared_folder/project3
+scp -P 14226 C:/Users/op902/CS585-Project3/Queries.scala  ds503@localhost:~/shared_folder/project3
+*/
+
 object Query4 {
 
   def main(args: Array[String]): Unit = {
-    val spark = SparkSession.builder().appName("Part2").master("local[*]") .getOrCreate()
+    val spark = SparkSession.builder().appName("Part2").master("local[*]").getOrCreate()
 
+    //load datasets
     val reviews = spark.read
       .option("header", "true")     //fist line of csv is header
       .option("inferSchema", "true")
+      .option("nullValue", "")
+      .option("quote", "\"")             //quotes signify a single field value
+      .option("escape", "\"")            //escape character defined to be double quote (so "" translates to a quote when its in a field)
       .csv("file:////home/ds503/shared_folder/project3/Books_rating.csv")
-      .withColumnRenamed("review/score", "reviewScore")
-      .withColumnRenamed("review/text", "reviewText")
 
-    //filter reviews 
-    val T1 = reviews.filter(reviews("reviewScore") > 3.0 
-                      && reviews("reviewText").isNotNull && reviews("Title").isNotNull
-                      && reviews("reviewText") != "" && reviews("Title") != "")
+    val bookDetails = spark.read
+      .option("header", "true")     //fist line of csv is header
+      .option("inferSchema", "true")
+      .option("nullValue", "")
+      .option("quote", "\"")             //quotes signify a single field value
+      .option("escape", "\"")            //escape character defined to be double quote (so "" translates to a quote when its in a field)
+      .csv("file:////home/ds503/shared_folder/project3/books_data.csv")
 
-    //group reviews by score and compute summary statistics
+    //filter reviews (2.2)
+    val T1 = reviews
+      .filter(
+        reviews("review/score") >= 4 &&
+        reviews("review/text").isNotNull && trim(reviews("review/text")) =!= "" &&
+        reviews("Title").isNotNull && reviews("Title") =!= ""
+      )
+    
+    //group reviews by review/score and compute summary statistics (2.3)
+    //number of reviews, average review text length, minimum review text length,  maximum review text length
+    val reviewScoreCounts = T1
+      .groupBy("review/score")
+      .agg(
+        count("review/score").as("Number of reviews"),
+        avg(length(T1("review/text"))).as("Average review text length"),
+        min(length(T1("review/text"))).as("Minimum review text length"),
+        max(length(T1("review/text"))).as("Maximum review text length")
+      )
+
+    reviewScoreCounts.show()
+
+    //User review stats (2.4)
+    val T3 = T1
+      .groupBy("User_id")
+      .agg(
+        count("*").as("Total number of reviews"),
+        avg("review/score").as("Average review score"),
+        avg(length(col("review/text"))).as("Average review text length")
+      )
+      .filter(col("Total number of reviews") >= 3)
+
+    T3.show()
+
+    //join reviews and book details (2.5)
+    val reviewJoinData = T1
+      .join(bookDetails, Seq("Title")) 
+     
+    val T4 = reviewJoinData
+      .groupBy("User_id", "categories")
+      .agg(
+        count("*").as("Number of reviews in category"),
+        avg("review/score").as("Average review score in category"),
+        avg("Price").as("Average price in category")  //nulls will be ignored automatically
+      )
+      .filter(col("Number of reviews in category") >= 2)
+
+    T4.show()
 
     spark.stop()
   }
@@ -176,4 +234,3 @@ object Query1 {
     sc.stop()
   }
 }
-
