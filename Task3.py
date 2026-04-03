@@ -1,11 +1,17 @@
+
+# conda create -n spark-nlp python=3.8
+# conda activate spark-nlp
+# conda install -c johnsnowlabs spark-nlp
+# conda install -c conda-forge openjdk=8
+# python run Task3.py
+
+
+
 import sparknlp
 from sparknlp.base import *
 from sparknlp import DocumentAssembler
 from sparknlp.annotator import *
 from pyspark.ml import Pipeline
-
-# conda install -c johnsnowlabs spark-nlp
-# conda install -c conda-forge openjdk=8
 
 
 
