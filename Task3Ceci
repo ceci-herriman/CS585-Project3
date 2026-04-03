@@ -21,7 +21,7 @@ spark = sparknlp.start()
 
 # load the review text column from the dataset
 
-data = spark.read.csv("Books_rating.csv", header=True).selectExpr("`review/text` as text")
+data = spark.read.csv("Books_rating_small.csv", header=True).selectExpr("`review/text` as text")
 
 # Simple tokenization pipeline
 documentAssembler = DocumentAssembler() \
@@ -69,14 +69,18 @@ ner = NerCrfModel.pretrained() \
     .setInputCols(["document", "token", "pos", "embeddings"]) \
     .setOutputCol("ner")
 
+ner_converter = NerConverter() \
+    .setInputCols(["sentence", "token", "ner"]) \
+    .setOutputCol("entities")
+
 # PoS model (use SparkNLP pretrained PoS model)
 pos = PerceptronModel.pretrained() \
     .setInputCols("sentence", "token") \
     .setOutputCol("pos")
 
 finisher = Finisher() \
-    .setInputCols(["sentiment", "ner", "pos"]) \
-    .setOutputCols(["sentiment_result", "ner_result", "pos_result"]) \
+    .setInputCols(["sentiment", "entities", "pos"]) \
+    .setOutputCols(["sentiment_result", "entities_result", "pos_result"]) \
     .setOutputAsArray(True) \
     .setCleanAnnotations(False)
 
@@ -91,6 +95,7 @@ pipeline = Pipeline().setStages([
     pos,
     sequenceClassifier,
     ner,
+    ner_converter,
     finisher
 ])
 
@@ -105,18 +110,22 @@ sentiment_distribution.show()
 
 # Tasks: extracting named entities and analyzing their frequency
 from pyspark.sql.functions import explode
-ner_exploded = result.select(explode("ner_result").alias("entity"))
-entity_frequency = ner_exploded.groupBy("entity").count().orderBy("count", ascending=False)
+# ner_exploded = result.select(explode("ner_result").alias("entity"))
+# entity_frequency = ner_exploded.groupBy("entity").count().orderBy("count", ascending=False)
+# entity_frequency.show()
+entities_exploded = result.select(explode("entities_result").alias("entity"))
+entity_frequency = entities_exploded.groupBy("entity").count().orderBy("count", ascending=False)
 entity_frequency.show()
 
 # Tasks: comparing linguistic patterns between high-rated and low-rated reviews
 from pyspark.sql.functions import col, array_contains
 
-high_rated_reviews = result.filter(array_contains(col("sentiment_result") == "positive"))
-low_rated_reviews = result.filter(array_contains(col("sentiment_result") == "negative"))
+high_rated_reviews = result.filter(array_contains(col("sentiment_result"), "positive"))
+low_rated_reviews = result.filter(array_contains(col("sentiment_result"), "negative"))
 high_rated_pos = high_rated_reviews.select(explode("pos_result").alias("pos"))
 low_rated_pos = low_rated_reviews.select(explode("pos_result").alias("pos"))
 high_rated_pos_frequency = high_rated_pos.groupBy("pos").count().orderBy("count", ascending=False)
 low_rated_pos_frequency = low_rated_pos.groupBy("pos").count().orderBy("count", ascending=False)
+
 high_rated_pos_frequency.show()
 low_rated_pos_frequency.show()
