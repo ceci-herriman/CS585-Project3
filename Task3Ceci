@@ -21,7 +21,8 @@ spark = sparknlp.start()
 
 # load the review text column from the dataset
 
-data = spark.read.csv("Books_rating_small.csv", header=True).selectExpr("`review/text` as text")
+data = spark.read.csv("Books_rating.csv", header=True).selectExpr("`review/text` as text")
+data = data.limit(50000)
 
 # Simple tokenization pipeline
 documentAssembler = DocumentAssembler() \
@@ -36,14 +37,6 @@ regexTokenizer = Tokenizer() \
     .setInputCols(["sentence"]) \
     .setOutputCol("token")
 
-spellChecker = NorvigSweetingModel.pretrained() \
-    .setInputCols(["token"]) \
-    .setOutputCol("corrected")
-
-normalizer = Normalizer() \
-    .setInputCols(["corrected"]) \
-    .setOutputCol("normalized")
-
 
 # Word embeddings (use SparkNLP pretrained embeddings)
 embeddings = WordEmbeddingsModel.pretrained("glove_100d") \
@@ -56,15 +49,14 @@ sequenceClassifier = ViveknSentimentModel.pretrained() \
     .setInputCols(["document", "token"]) \
     .setOutputCol("sentiment")
 
-# sequenceClassifier = DistilBertForSequenceClassification.pretrained("distilbert_base_uncased_finetuned_sentiment_amazon","en") \
-#     .setInputCols(["sentence", "token"]) \
-#     .setOutputCol("sentiment")
-# we use distilbert's pretrained model trained on Amazon reviews because it's a more effective pretrained model for sentiment analysis in reviews.
+
+# PoS model (use SparkNLP pretrained PoS model)
+pos = PerceptronModel.pretrained() \
+    .setInputCols("sentence", "token") \
+    .setOutputCol("pos")
+
 
 # NER model (use SparkNLP pretrained NER model)
-# ner = NerDLModel.pretrained() \
-#     .setInputCols("sentence", "token", "embeddings") \
-#     .setOutputCol("ner")
 ner = NerCrfModel.pretrained() \
     .setInputCols(["document", "token", "pos", "embeddings"]) \
     .setOutputCol("ner")
@@ -72,11 +64,6 @@ ner = NerCrfModel.pretrained() \
 ner_converter = NerConverter() \
     .setInputCols(["sentence", "token", "ner"]) \
     .setOutputCol("entities")
-
-# PoS model (use SparkNLP pretrained PoS model)
-pos = PerceptronModel.pretrained() \
-    .setInputCols("sentence", "token") \
-    .setOutputCol("pos")
 
 finisher = Finisher() \
     .setInputCols(["sentiment", "entities", "pos"]) \
@@ -89,8 +76,6 @@ pipeline = Pipeline().setStages([
     documentAssembler,
     sentenceDetector,
     regexTokenizer,
-    spellChecker,
-    normalizer,
     embeddings,
     pos,
     sequenceClassifier,
@@ -100,7 +85,11 @@ pipeline = Pipeline().setStages([
 ])
 
 model = pipeline.fit(data)
-result = model.transform(data)
+result = model.transform(data).select(
+    "sentiment_result",
+    "entities_result",
+    "pos_result"
+)
 # end pipeline
 
 
@@ -110,11 +99,9 @@ sentiment_distribution.show()
 
 # Tasks: extracting named entities and analyzing their frequency
 from pyspark.sql.functions import explode
-# ner_exploded = result.select(explode("ner_result").alias("entity"))
-# entity_frequency = ner_exploded.groupBy("entity").count().orderBy("count", ascending=False)
-# entity_frequency.show()
-entities_exploded = result.select(explode("entities_result").alias("entity"))
-entity_frequency = entities_exploded.groupBy("entity").count().orderBy("count", ascending=False)
+
+entities_exploded_filtered = result.select(explode("entities_result").alias("entity")).filter("entity IS NOT NULL").filter(~col("entity").rlike(".*'.*"))
+entity_frequency = entities_exploded_filtered.groupBy("entity").count().orderBy("count", ascending=False)
 entity_frequency.show()
 
 # Tasks: comparing linguistic patterns between high-rated and low-rated reviews
