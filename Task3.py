@@ -4,7 +4,7 @@
 # conda install -c johnsnowlabs spark-nlp
 # conda install -c conda-forge openjdk=8
 # conda install pyspark
-# python run Task3.py
+# python Task3.py
 
 
 
@@ -93,16 +93,36 @@ result = model.transform(data).select(
 # end pipeline
 
 
-# Tasks: analyzing sentiment distribution across reviews
-sentiment_distribution = result.groupBy("sentiment_result").count()
-sentiment_distribution.show()
+# Tasks: analyzing sentiment distribution across reviews 
+sentiment_distribution = result.groupBy("sentiment_result")
+sentiment_distribution.count().show()
 
-# Tasks: extracting named entities and analyzing their frequency
-from pyspark.sql.functions import explode
+# Tasks: extracting named entities and analyzing their frequency across different positive versus negative sentiments
+from pyspark.sql.functions import explode, array_contains
 
-entities_exploded_filtered = result.select(explode("entities_result").alias("entity")).filter("entity IS NOT NULL").filter(~col("entity").rlike(".*'.*"))
-entity_frequency = entities_exploded_filtered.groupBy("entity").count().orderBy("count", ascending=False)
-entity_frequency.show()
+entities_exploded_filtered = result.select("sentiment_result", explode("entities_result").alias("entity")).filter("entity IS NOT NULL").filter(~col("entity").rlike(".*'.*"))
+entity_frequency = entities_exploded_filtered.groupBy("sentiment_result", "entity").count().orderBy("count", ascending=False)
+
+positive_entities = entities_exploded_filtered \
+    .filter(array_contains(col("sentiment_result"), "positive")) \
+    .groupBy("entity") \
+    .count() \
+    .orderBy("count", ascending=False)
+
+negative_entities = entities_exploded_filtered \
+    .filter(array_contains(col("sentiment_result"), "negative")) \
+    .groupBy("entity") \
+    .count() \
+    .orderBy("count", ascending=False)
+
+pos_ent = positive_entities.withColumnRenamed("count", "pos_count")
+neg_ent = negative_entities.withColumnRenamed("count", "neg_count")
+
+comparison = pos_ent.join(neg_ent, on="entity", how="outer").na.fill(0)
+
+comparison.orderBy("pos_count", ascending=False).show(20)
+comparison.orderBy("neg_count", ascending=False).show(20)
+
 
 # Tasks: comparing linguistic patterns between high-rated and low-rated reviews
 from pyspark.sql.functions import col, array_contains
